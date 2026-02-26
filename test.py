@@ -11,32 +11,37 @@ class Pair:
         self.a = a
         self.b = b
     
+    def broadcastEstablishment(self):
+        broadcast(self.a, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.b]}!"' + "}") 
+        broadcast(self.b, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.a]}!"' + "}") 
+    
 
 
-connections = []
+connections = {}
 pairs = []
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
-    connections.append(ws)
-    try:
-        await broadcast(ws, '{"type": "notif", "payload": "Connected!"}')
-    except WebSocketDisconnect:
-        connections.remove(ws)
+    connections[ws] = "user" + str(len(connections))
     
+    await onConnect(ws)
     try:
         while True:
             data = await ws.receive_text()
             for socket in connections:
                 await broadcast(socket, data)
     except WebSocketDisconnect:
-        connections.remove(ws)
+        connections.pop(ws)
 
 async def broadcast(socket: WebSocket, data: str):
     await socket.send_text(f"{data}")
 
-def onConnect(socket: WebSocket):
+async def onConnect(socket: WebSocket):
+    try:
+        await broadcast(socket, '{"type": "notif", "payload": "Connected to server!"}')
+    except WebSocketDisconnect:
+        connections.pop(socket)
     if len(connections) < 2:
         return
     foundPair = None

@@ -39,7 +39,6 @@ async def send(ws):
 
 async def main():
     async with websockets.connect("wss://overflowing-dream-production.up.railway.app/ws", open_timeout=30) as ws:
-        print("Connected!")
         await asyncio.gather(receive(ws), send(ws))
 
 asyncio.run(main())
