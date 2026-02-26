@@ -11,9 +11,9 @@ class Pair:
         self.a = a
         self.b = b
     
-    def broadcastEstablishment(self):
-        broadcast(self.a, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.b]}!"' + "}") 
-        broadcast(self.b, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.a]}!"' + "}") 
+    async def broadcastEstablishment(self):
+        await broadcast(self.a, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.b]}!"' + "}") 
+        await broadcast(self.b, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.a]}!"' + "}") 
     
 
 
@@ -51,6 +51,6 @@ async def onConnect(socket: WebSocket):
         foundPair = s
         break
     pair = Pair(socket, foundPair)
-    pair.broadcastEstablishment()
+    await pair.broadcastEstablishment()
     pairs.append(pair)
     
