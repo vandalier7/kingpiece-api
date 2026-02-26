@@ -3,14 +3,16 @@ import websockets
 import json
 
 username = input("Enter your username: ")
+print("Connecting, Please Wait")
 
 class Message:
     def __init__(self, sender, message):
         self.sender = sender
-        self.content = message 
+        self.content = message
+        self.type = "message"
     
     def to_json(self):
-        return json.dumps({"sender": self.sender, "content": self.content})
+        return json.dumps({"sender": self.sender, "content": self.content, "type": self.type})
     
     @classmethod
     def from_json(cls, data: str):
@@ -21,9 +23,13 @@ class Message:
 async def receive(ws):
     while True:
         jsn = await ws.recv()
-        msg = Message.from_json(jsn)
-        if msg.sender != username:
-            print(msg.sender + ": " + msg.content)
+        parsed = json.loads(jsn)
+        if parsed["type"] == "message":
+            msg = Message.from_json(jsn)
+            if msg.sender != username:
+                print(msg.sender + ": " + msg.content)
+        if parsed["type"] == "notif":
+            print(parsed["payload"])
 
 async def send(ws):
     while True:
@@ -32,7 +38,8 @@ async def send(ws):
         await ws.send(msgObj.to_json())
 
 async def main():
-    async with websockets.connect("ws://192.168.1.7:8000/ws") as ws:
+    async with websockets.connect("wss://overflowing-dream-production.up.railway.app/ws", open_timeout=30) as ws:
+        print("Connected!")
         await asyncio.gather(receive(ws), send(ws))
 
 asyncio.run(main())
