@@ -21,7 +21,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     connections.append(ws)
     try:
-        await broadcast(ws, {"type": "notif", "payload": "Connected!"})
+        await broadcast(ws, '{"type": "notif", "payload": "Connected!"}')
     except WebSocketDisconnect:
         connections.remove(ws)
     
