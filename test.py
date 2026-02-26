@@ -50,4 +50,7 @@ async def onConnect(socket: WebSocket):
             continue
         foundPair = s
         break
-    pairs.append(Pair(socket, foundPair))
+    pair = Pair(socket, foundPair)
+    pair.broadcastEstablishment()
+    pairs.append(pair)
+    
