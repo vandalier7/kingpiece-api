@@ -30,6 +30,12 @@ async def receive(ws):
                 print(msg.sender + ": " + msg.content)
         if parsed["type"] == "notif":
             print(parsed["payload"])
+        if parsed["type"] == "request":
+            await processRequest(parsed["payload"], ws)
+
+async def processRequest(payload: str, socket):
+    if payload == "username":
+        await socket.send(username)
 
 async def send(ws):
     while True:

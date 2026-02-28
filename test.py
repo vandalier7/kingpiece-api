@@ -40,6 +40,8 @@ async def broadcast(socket: WebSocket, data: str):
 async def onConnect(socket: WebSocket):
     try:
         await broadcast(socket, '{"type": "notif", "payload": "Connected to server!"}')
+        await broadcast(socket, '{"type": "request", "payload": "username"}')
+        connections[socket] = await socket.receive_text()
     except WebSocketDisconnect:
         connections.pop(socket)
     if len(connections) < 2:
