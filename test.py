@@ -1,13 +1,23 @@
-
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.websockets import WebSocketDisconnect
 import asyncio
+import httpx
+import os
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
 
 app = FastAPI()
 
-users = {} # username: password
+users = {}
 gameConnections = {}
 queue = []
 
@@ -19,30 +29,61 @@ class UsernameRequest(BaseModel):
     username: str
 
 
+# @app.post("/register")
+# async def register(req: AuthRequest):
+#     if req.username in users:
+#         raise HTTPException(status_code=409, detail="Username taken")
+#     users[req.username] = req.password
+#     return {"status": "ok"}
+
 @app.post("/register")
 async def register(req: AuthRequest):
-    if req.username in users:
-        raise HTTPException(status_code=409, detail="Username taken")
-    users[req.username] = req.password
-    return {"status": "ok"}
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            f"{SUPABASE_URL}/rest/v1/accounts",
+            headers=HEADERS,
+            json={"username": req.username, "password": req.password}
+        )
+        if res.status_code == 409:
+            raise HTTPException(status_code=409, detail="Username taken")
+        return {"status": "ok"}
+
+
+# @app.post("/login")
+# async def login(req: AuthRequest):
+#     if req.username not in users or users[req.username] != req.password:
+#         raise HTTPException(status_code=401, detail="Invalid credentials")
+#     return {"status": "ok", "username": req.username}
 
 @app.post("/login")
 async def login(req: AuthRequest):
-    if req.username not in users or users[req.username] != req.password:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return {"status": "ok", "username": req.username}
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            f"{SUPABASE_URL}/rest/v1/accounts",
+            headers=HEADERS,
+            params={"username": f"eq.{req.username}", "select": "username,password"}
+        )
+        data = res.json()
+        if not data or data[0]["password"] != req.password:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        return {"status": "ok", "username": req.username}
 
 
 matched = {}
 @app.post("/queue")
 async def queuePlayer(req: UsernameRequest):
-    if req.username not in users:
-        raise HTTPException(status_code=404, detail="Player not found")
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            f"{SUPABASE_URL}/rest/v1/accounts",
+            headers=HEADERS,
+            params={"username": f"eq.{req.username}", "select": "username"}
+        )
+        if not res.json():
+            raise HTTPException(status_code=404, detail="Player not found")
 
     if req.username in queue:
         raise HTTPException(status_code=400, detail="Already queued")
 
-    
     queue.append(req.username)
 
     if len(queue) >= 2:
@@ -64,13 +105,12 @@ async def game(ws: WebSocket):
     await ws.accept()
     username = ws.query_params["username"]
     gameConnections[username] = ws
-    
+
     try:
         while True:
             data = await ws.receive_text()
             opponent = matched.get(username)
             if opponent and opponent in gameConnections:
-                
                 await ws.send_text(data)
                 await gameConnections[opponent].send_text(data)
     except WebSocketDisconnect:
