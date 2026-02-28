@@ -49,10 +49,10 @@ async def queuePlayer(req: UsernameRequest):
         p2 = queue.pop(0)
         matched[p1] = p2
         matched[p2] = p1
-        return {"status": "matched", "opponent": matched.pop(req.username)}
+        return {"status": "matched", "opponent": matched.pop(req.username), "team": 0}
 
     while req.username in queue:
         await asyncio.sleep(0.5)
 
     opponent = matched.pop(req.username)
-    return {"status": "matched", "opponent": opponent}
+    return {"status": "matched", "opponent": opponent, "team": 1}
