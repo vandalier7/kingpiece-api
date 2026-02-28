@@ -136,13 +136,18 @@ async def recordMove(username: str, move_data: dict):
     session_id = sessions.get(username)
     if not session_id:
         return
+    unpacked = move_data["action"]
+    orderID = unpacked.pop(0)
+    actionType = unpacked.pop(0)
     async with httpx.AsyncClient() as client:
         await client.post(
             f"{SUPABASE_URL}/rest/v1/move",
             headers={**HEADERS, "Prefer": "return=minimal"},
             json={
+                "orderID": orderID,
                 "sessionID": session_id,
                 "playerID": username,
-                "moveData": move_data
+                "moveData": unpacked,
+                "moveType": actionType
             }
         )
