@@ -1,58 +1,58 @@
 
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.websockets import WebSocketDisconnect
+import asyncio
 
 app = FastAPI()
 
-class Pair:
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
+users = {} # username: password
+queue = []
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+class UsernameRequest(BaseModel):
+    username: str
+
+
+@app.post("/register")
+async def register(req: AuthRequest):
+    if req.username in users:
+        raise HTTPException(status_code=409, detail="Username taken")
+    users[req.username] = req.password
+    return {"status": "ok"}
+
+@app.post("/login")
+async def login(req: AuthRequest):
+    if req.username not in users or users[req.username] != req.password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"status": "ok", "username": req.username}
+
+
+matched = {}
+@app.post("/queue")
+async def queuePlayer(req: UsernameRequest):
+    if req.username not in users:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    if req.username in queue:
+        raise HTTPException(status_code=400, detail="Already queued")
+
     
-    async def broadcastEstablishment(self):
-        await broadcast(self.a, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.b]}!"' + "}") 
-        await broadcast(self.b, "{" + f'"type": "notif", "payload": "You are talking to {connections[self.a]}!"' + "}") 
-    
+    queue.append(req.username)
 
+    if len(queue) >= 2:
+        p1 = queue.pop(0)
+        p2 = queue.pop(0)
+        matched[p1] = p2
+        matched[p2] = p1
+        return {"status": "matched", "opponent": matched.pop(req.username)}
 
-connections = {}
-pairs = []
+    while req.username in queue:
+        await asyncio.sleep(0.5)
 
-@app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    await ws.accept()
-    connections[ws] = "user" + str(len(connections))
-    
-    await onConnect(ws)
-    try:
-        while True:
-            data = await ws.receive_text()
-            for socket in connections:
-                await broadcast(socket, data)
-    except WebSocketDisconnect:
-        connections.pop(ws)
-
-async def broadcast(socket: WebSocket, data: str):
-    await socket.send_text(f"{data}")
-
-async def onConnect(socket: WebSocket):
-    try:
-        await broadcast(socket, '{"type": "notif", "payload": "Connected to server!"}')
-        await broadcast(socket, '{"type": "request", "payload": "username"}')
-        connections[socket] = await socket.receive_text()
-    except WebSocketDisconnect:
-        connections.pop(socket)
-    if len(connections) < 2:
-        return
-    foundPair = None
-    for s in connections:
-        if s == socket:
-            continue
-        foundPair = s
-        break
-    pair = Pair(socket, foundPair)
-    await pair.broadcastEstablishment()
-    pairs.append(pair)
-    
+    opponent = matched.pop(req.username)
+    return {"status": "matched", "opponent": opponent}
