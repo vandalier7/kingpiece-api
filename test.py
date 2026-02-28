@@ -58,21 +58,6 @@ async def queuePlayer(req: UsernameRequest):
     opponent = matched.get(req.username)
     return {"status": "matched", "opponent": opponent, "team": 1}
 
-# @app.websocket("/game")
-# async def game(ws: WebSocket):
-#     await ws.accept()
-#     username = ws.query_params["username"]
-#     gameConnections[username] = ws
-    
-#     try:
-#         while True:
-#             data = await ws.receive_text()
-#             opponent = matched.get(username)
-#             if opponent and opponent in gameConnections:
-#                 await gameConnections[opponent].send_text(data)
-#                 await ws.send_text(data)
-#     except WebSocketDisconnect:
-#         gameConnections.pop(username)
 
 @app.websocket("/game")
 async def game(ws: WebSocket):
@@ -85,7 +70,8 @@ async def game(ws: WebSocket):
             data = await ws.receive_text()
             opponent = matched.get(username)
             if opponent and opponent in gameConnections:
-                await gameConnections[opponent].send_text(data)
+                
                 await ws.send_text(data)
+                await gameConnections[opponent].send_text(data)
     except WebSocketDisconnect:
         gameConnections.pop(username)
