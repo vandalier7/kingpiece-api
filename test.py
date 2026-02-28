@@ -70,5 +70,6 @@ async def game(ws: WebSocket):
             opponent = matched.get(username)
             if opponent and opponent in gameConnections:
                 await gameConnections[opponent].send_text(data)
+                await ws.send_text(data)
     except WebSocketDisconnect:
         gameConnections.pop(username)
