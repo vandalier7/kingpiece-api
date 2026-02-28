@@ -5,6 +5,7 @@ from fastapi.websockets import WebSocketDisconnect
 import asyncio
 import httpx
 import os
+import uuid
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -70,6 +71,7 @@ async def login(req: AuthRequest):
 
 
 matched = {}
+sessions = {}
 @app.post("/queue")
 async def queuePlayer(req: UsernameRequest):
     async with httpx.AsyncClient() as client:
@@ -91,13 +93,24 @@ async def queuePlayer(req: UsernameRequest):
         p2 = queue.pop(0)
         matched[p1] = p2
         matched[p2] = p1
-        return {"status": "matched", "opponent": matched.get(req.username), "team": 0}
+
+        session_id = str(uuid.uuid4())
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/rest/v1/game_sessions",
+                headers=HEADERS,
+                json={"id": session_id, "player1_id": p1, "player2_id": p2}
+            )
+        sessions[p1] = session_id
+        sessions[p2] = session_id
+
+        return {"status": "matched", "opponent": matched.get(req.username), "team": 0, "session_id": session_id}
 
     while req.username in queue:
         await asyncio.sleep(0.5)
 
     opponent = matched.get(req.username)
-    return {"status": "matched", "opponent": opponent, "team": 1}
+    return {"status": "matched", "opponent": opponent, "team": 1, "session_id": sessions.get(req.username)}
 
 
 @app.websocket("/game")
