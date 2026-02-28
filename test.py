@@ -6,6 +6,7 @@ import asyncio
 import httpx
 import os
 import uuid
+import json
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -123,8 +124,25 @@ async def game(ws: WebSocket):
         while True:
             data = await ws.receive_text()
             opponent = matched.get(username)
+            await ws.send_text(data)
             if opponent and opponent in gameConnections:
-                await ws.send_text(data)
                 await gameConnections[opponent].send_text(data)
+            await recordMove(username, json.loads(data))
+                
     except WebSocketDisconnect:
         gameConnections.pop(username)
+
+async def recordMove(username: str, move_data: dict):
+    session_id = sessions.get(username)
+    if not session_id:
+        return
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{SUPABASE_URL}/rest/v1/move",
+            headers={**HEADERS, "Prefer": "return=minimal"},
+            json={
+                "sessionID": session_id,
+                "playerID": username,
+                "moveData": move_data
+            }
+        )
