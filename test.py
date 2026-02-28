@@ -50,12 +50,12 @@ async def queuePlayer(req: UsernameRequest):
         p2 = queue.pop(0)
         matched[p1] = p2
         matched[p2] = p1
-        return {"status": "matched", "opponent": matched.pop(req.username), "team": 0}
+        return {"status": "matched", "opponent": matched.get(req.username), "team": 0}
 
     while req.username in queue:
         await asyncio.sleep(0.5)
 
-    opponent = matched.pop(req.username)
+    opponent = matched.get(req.username)
     return {"status": "matched", "opponent": opponent, "team": 1}
 
 # @app.websocket("/game")
@@ -83,7 +83,9 @@ async def game(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_text()
-            for socket in gameConnections.values():
-                await socket.send_text(data)
+            opponent = matched.get(username)
+            if opponent and opponent in gameConnections:
+                await gameConnections[opponent].send_text(data)
+                await ws.send_text(data)
     except WebSocketDisconnect:
         gameConnections.pop(username)
